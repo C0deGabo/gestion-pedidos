@@ -8,7 +8,7 @@ public class Main {
     public static void main(String[] args) {
         int opcion;
         do {
-            System.out.println("\n--- Sistema de Gestión de Pedidos ---");
+            System.out.println("\n<<<<< Sistema de Gestión de Pedidos >>>>>");
             System.out.println("1. Registrar producto");
             System.out.println("2. Mostrar productos");
             System.out.println("3. Salir");
@@ -18,7 +18,7 @@ public class Main {
             switch (opcion) {
                 case 1 -> registrarProducto();
                 case 2 -> mostrarProductos();
-                case 3 -> System.out.println("¡Hasta luego!");
+                case 3 -> System.out.println("saliendo");
                 default -> System.out.println("Opción inválida.");
             }
         } while (opcion != 3);
@@ -30,7 +30,7 @@ public class Main {
         System.out.print("Precio: ");
         double precio = Double.parseDouble(sc.nextLine());
         productos.add(new Producto(nombre, precio));
-        System.out.println("✔ Producto registrado.");
+        System.out.println(" Producto registrado");
     }
 
     static void mostrarProductos() {
