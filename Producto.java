@@ -1,7 +1,13 @@
-public class Main {
-    public static void main(String[] args) {
-        System.out.println("--- Sistema de Gestión de Pedidos ---");
-        Producto producto1 = new Producto("Café Americano", 3.50);
-        producto1.mostrarDatos();
+public class Producto {
+    private String nombre;
+    private double precio;
+
+    public Producto(String nombre, double precio) {
+        this.nombre = nombre;
+        this.precio = precio;
+    }
+
+    public void mostrarDatos() {
+        System.out.println("Producto: " + nombre + " | Precio: $" + precio);
     }
 }
