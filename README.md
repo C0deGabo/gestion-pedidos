@@ -4,4 +4,5 @@ Integrantes : Gabriel Wilfredo Rivera Ferreyra
 
 GRUPO NUMERO 10
 
-Hola, esta linea a sido modificado por el usuario 2 para crear conflicto
+
+Hola, esta linea a sido modificado por los dos usuarios :D
