@@ -1,8 +1,4 @@
+out/
 *.class
-bin/
-.settings/
-.project
-.classpath
 .idea/
 *.iml
-target/
