@@ -1,5 +1,6 @@
 package vista;
 
+import controlador.ExportadorHistorial;
 import controlador.GestorPedidosController;
 import excepciones.ValidacionException;
 import modelo.Cliente;
@@ -16,6 +17,7 @@ import javax.swing.plaf.basic.BasicButtonUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -484,7 +486,16 @@ public class VentanaPrincipal extends JFrame {
         JPanel tarjeta = crearTarjetaBlanca();
         tarjeta.setLayout(new BorderLayout(0, 12));
         tarjeta.setBorder(new EmptyBorder(18, 18, 18, 18));
-        tarjeta.add(crearTituloSeccion("Actividad del sistema"), BorderLayout.NORTH);
+        
+        JPanel cabecera = new JPanel(new BorderLayout());
+        cabecera.setOpaque(false);
+        cabecera.add(crearTituloSeccion("Actividad del sistema"), BorderLayout.WEST);
+        
+        JButton btnExportar = crearBotonSecundario("Exportar a Excel", false);
+        btnExportar.addActionListener(e -> exportarHistorialCSV());
+        cabecera.add(btnExportar, BorderLayout.EAST);
+        
+        tarjeta.add(cabecera, BorderLayout.NORTH);
 
         modeloHistorial = modeloNoEditable(new String[]{"Fecha y hora", "Tipo", "Descripción"});
         JTable tabla = crearTabla(modeloHistorial);
@@ -946,5 +957,27 @@ public class VentanaPrincipal extends JFrame {
 
     private void mostrarExito(String mensaje) {
         JOptionPane.showMessageDialog(this, mensaje, "Correcto", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void exportarHistorialCSV() {
+        List<HistorialEvento> eventos = gestor.getHistorial();
+        if (eventos.isEmpty()) {
+            mostrarError("No hay datos en el historial para exportar.");
+            return;
+        }
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Guardar Historial como CSV");
+        fileChooser.setSelectedFile(new File("HistorialMovimientos.csv"));
+
+        int userSelection = fileChooser.showSaveDialog(this);
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            try {
+                ExportadorHistorial.exportarCSV(fileChooser.getSelectedFile(), eventos);
+                mostrarExito("Historial exportado correctamente.");
+            } catch (Exception ex) {
+                mostrarError(ex.getMessage());
+            }
+        }
     }
 }
