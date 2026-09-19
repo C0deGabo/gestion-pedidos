@@ -1,16 +1,15 @@
 package controlador;
 
 import excepciones.ValidacionException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import modelo.Cliente;
 import modelo.EstadoPedido;
 import modelo.HistorialEvento;
 import modelo.Pedido;
 import modelo.Producto;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 public class GestorPedidosController {
     // LinkedHashMap evita códigos duplicados y conserva el orden de registro.
@@ -46,6 +45,27 @@ public class GestorPedidosController {
         }
 
         Producto producto = new Producto(clave, nombre, precio);
+        productos.put(clave, producto);
+        registrarEvento("PRODUCTO", "Producto registrado: " + clave + " - " + producto.getNombre());
+        return producto;
+    }
+    //sobrecarga: código definido por el usuario, con stock y estado activo/inactivo.
+    public Producto registrarProducto(String codigo, String nombre, double precio, int stock, boolean activo) throws ValidacionException {
+        validarTexto(codigo, "El código del producto es obligatorio.");
+        validarTexto(nombre, "El nombre del producto es obligatorio.");
+        if (precio <= 0) {
+            throw new ValidacionException("El precio debe ser mayor que cero.");
+        }
+        if (stock < 0) {
+            throw new ValidacionException("El stock no puede ser negativo.");
+        }
+
+        String clave = codigo.trim().toUpperCase();
+        if (productos.containsKey(clave)) {
+            throw new ValidacionException("Ya existe un producto con el código " + clave + ".");
+        }
+
+        Producto producto = new Producto(clave, nombre, precio, stock, activo);
         productos.put(clave, producto);
         registrarEvento("PRODUCTO", "Producto registrado: " + clave + " - " + producto.getNombre());
         return producto;
@@ -115,6 +135,46 @@ public class GestorPedidosController {
             throw new ValidacionException("No se encontró el producto seleccionado.");
         }
         registrarEvento("PRODUCTO", "Producto retirado del catálogo: " + codigo + " - " + eliminado.getNombre());
+    }
+        /** Busca un producto por código (case-insensitive). Devuelve null si no existe. */
+    public Producto buscarProductoPorCodigo(String codigo) {
+        if (codigo == null) return null;
+        return productos.get(codigo.trim().toUpperCase());
+    }
+
+    /** Actualiza un producto existente (el código no se modifica). */
+    public void actualizarProducto(String codigo, String nombre, double precio, int stock, boolean activo)
+            throws ValidacionException {
+
+        Producto producto = buscarProductoPorCodigo(codigo);
+        if (producto == null) {
+            throw new ValidacionException("No se encontró el producto con código " + codigo + ".");
+        }
+        validarTexto(nombre, "El nombre del producto es obligatorio.");
+        if (precio <= 0) {
+            throw new ValidacionException("El precio debe ser mayor que cero.");
+        }
+        if (stock < 0) {
+            throw new ValidacionException("El stock no puede ser negativo.");
+        }
+
+        // Validar nombre duplicado en otro producto distinto.
+        String nombreLimpio = nombre.trim();
+        for (Producto otro : productos.values()) {
+            if (!otro.getCodigo().equalsIgnoreCase(producto.getCodigo())
+                    && otro.getNombre().equalsIgnoreCase(nombreLimpio)) {
+                throw new ValidacionException("Ya existe otro producto con el nombre \"" + nombreLimpio + "\".");
+            }
+        }
+
+        producto.setNombre(nombreLimpio);
+        producto.setPrecio(precio);
+        producto.setStock(stock);
+        producto.setActivo(activo);
+
+        registrarEvento("PRODUCTO", "Producto actualizado: " + producto.getCodigo()
+                + " - " + producto.getNombre() + " (stock: " + stock
+                + ", estado: " + producto.getEstado() + ")");
     }
 
     public void eliminarCliente(String id) throws ValidacionException {

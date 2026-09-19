@@ -3,17 +3,6 @@ package vista;
 import controlador.ExportadorHistorial;
 import controlador.GestorPedidosController;
 import excepciones.ValidacionException;
-import modelo.Cliente;
-import modelo.HistorialEvento;
-import modelo.Pedido;
-import modelo.Producto;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
-import javax.swing.plaf.basic.BasicButtonUI;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -23,6 +12,20 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.plaf.basic.BasicButtonUI;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableRowSorter;
+import modelo.Cliente;
+import modelo.HistorialEvento;
+import modelo.Pedido;
+import modelo.Producto;
 
 public class VentanaPrincipal extends JFrame {
     private static final Color COLOR_FONDO = new Color(244, 247, 251);
@@ -62,6 +65,13 @@ public class VentanaPrincipal extends JFrame {
     private JTextField txtCodigoProducto;
     private JTextField txtNombreProducto;
     private JTextField txtPrecioProducto;
+    private JTextField txtStockProducto;
+    private JCheckBox chkActivoProducto;
+    private JTextField txtBuscarProducto;
+    private JButton btnRegistrarProducto;
+    private JButton btnCancelarEdicionProducto;
+    private TableRowSorter<DefaultTableModel> sorterProductos;
+    private String codigoProductoEnEdicion = null;
 
     private JTextField txtNombreCliente;
     private JTextField txtTelefonoCliente;
@@ -286,14 +296,15 @@ public class VentanaPrincipal extends JFrame {
         return tarjeta;
     }
 
-    private JPanel crearPanelProductos() {
-        JPanel panel = crearPanelBase("Productos", "Registra y administra el catálogo temporal de productos.");
+        private JPanel crearPanelProductos() {
+        JPanel panel = crearPanelBase("Productos", "Registra, edita y administra el catálogo temporal de productos.");
 
         JPanel cuerpo = new JPanel(new BorderLayout(16, 0));
         cuerpo.setOpaque(false);
 
+        // ---------- FORMULARIO IZQUIERDO ----------
         JPanel formulario = crearTarjetaBlanca();
-        formulario.setPreferredSize(new Dimension(320, 0));
+        formulario.setPreferredSize(new Dimension(340, 0));
         formulario.setLayout(new BoxLayout(formulario, BoxLayout.Y_AXIS));
         formulario.setBorder(new EmptyBorder(20, 20, 20, 20));
         formulario.add(crearTituloSeccion("Nuevo producto"));
@@ -302,28 +313,100 @@ public class VentanaPrincipal extends JFrame {
         txtCodigoProducto = crearCampo(formulario, "Código (opcional)");
         txtNombreProducto = crearCampo(formulario, "Nombre");
         txtPrecioProducto = crearCampo(formulario, "Precio");
+        txtStockProducto  = crearCampo(formulario, "Stock inicial");
 
-        JButton btnRegistrar = crearBotonPrimario("Registrar producto");
-        btnRegistrar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        btnRegistrar.addActionListener(e -> registrarProductoDesdeUI());
+        chkActivoProducto = new JCheckBox("Producto activo");
+        chkActivoProducto.setOpaque(false);
+        chkActivoProducto.setSelected(true);
+        chkActivoProducto.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        chkActivoProducto.setForeground(COLOR_TEXTO);
+        chkActivoProducto.setAlignmentX(Component.LEFT_ALIGNMENT);
+        formulario.add(chkActivoProducto);
+        formulario.add(Box.createVerticalStrut(14));
+
+        btnRegistrarProducto = crearBotonPrimario("Registrar producto");
+        btnRegistrarProducto.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btnRegistrarProducto.addActionListener(e -> guardarProductoDesdeUI());
+        formulario.add(btnRegistrarProducto);
         formulario.add(Box.createVerticalStrut(8));
-        formulario.add(btnRegistrar);
+
+        btnCancelarEdicionProducto = crearBotonSecundario("Cancelar edición", false);
+        btnCancelarEdicionProducto.setAlignmentX(Component.LEFT_ALIGNMENT);
+        btnCancelarEdicionProducto.setVisible(false);
+        btnCancelarEdicionProducto.addActionListener(e -> cancelarEdicionProducto());
+        formulario.add(btnCancelarEdicionProducto);
         formulario.add(Box.createVerticalGlue());
 
+        // ---------- LISTADO DERECHO ----------
         JPanel listado = crearTarjetaBlanca();
         listado.setLayout(new BorderLayout(0, 12));
         listado.setBorder(new EmptyBorder(18, 18, 18, 18));
 
-        JPanel cabecera = new JPanel(new BorderLayout());
+        JPanel cabecera = new JPanel(new BorderLayout(8, 0));
         cabecera.setOpaque(false);
         cabecera.add(crearTituloSeccion("Catálogo"), BorderLayout.WEST);
-        JButton btnEliminar = crearBotonSecundario("Eliminar seleccionado", true);
+
+        JPanel acciones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        acciones.setOpaque(false);
+
+        JLabel lblBuscar = new JLabel("Buscar:");
+        lblBuscar.setForeground(COLOR_TEXTO_SUAVE);
+        lblBuscar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+
+        txtBuscarProducto = new JTextField();
+        estilizarComponente(txtBuscarProducto);
+        txtBuscarProducto.setPreferredSize(new Dimension(220, 32));
+        txtBuscarProducto.setMaximumSize(new Dimension(220, 32));
+        txtBuscarProducto.setToolTipText("Filtra por código, nombre o estado");
+
+        JButton btnEditar = crearBotonSecundario("Editar seleccionado", false);
+        btnEditar.addActionListener(e -> iniciarEdicionProducto());
+        JButton btnEliminar = crearBotonSecundario("Eliminar", true);
         btnEliminar.addActionListener(e -> eliminarProductoSeleccionado());
-        cabecera.add(btnEliminar, BorderLayout.EAST);
+
+        acciones.add(lblBuscar);
+        acciones.add(txtBuscarProducto);
+        acciones.add(btnEditar);
+        acciones.add(btnEliminar);
+        cabecera.add(acciones, BorderLayout.EAST);
         listado.add(cabecera, BorderLayout.NORTH);
 
-        modeloProductos = modeloNoEditable(new String[]{"Código", "Nombre", "Precio"});
+        modeloProductos = modeloNoEditable(new String[]{
+                "Código", "Nombre", "Precio", "Stock", "Estado"
+        });
         tablaProductos = crearTabla(modeloProductos);
+
+        sorterProductos = new TableRowSorter<>(modeloProductos);
+        tablaProductos.setRowSorter(sorterProductos);
+
+        txtBuscarProducto.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e)  { aplicarFiltroProductos(); }
+            @Override public void removeUpdate(DocumentEvent e)  { aplicarFiltroProductos(); }
+            @Override public void changedUpdate(DocumentEvent e) { aplicarFiltroProductos(); }
+        });
+
+        // Renderer de color para columna Estado (índice 4)
+        tablaProductos.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                                                           boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (isSelected) {
+                    c.setForeground(COLOR_TEXTO);
+                } else {
+                    String estado = String.valueOf(value);
+                    switch (estado) {
+                        case "DISPONIBLE": c.setForeground(new Color(22, 163, 74));  break;
+                        case "AGOTADO":    c.setForeground(new Color(217, 119, 6));  break;
+                        case "INACTIVO":   c.setForeground(COLOR_PELIGRO);           break;
+                        default:           c.setForeground(COLOR_TEXTO);
+                    }
+                }
+                setBorder(new EmptyBorder(0, 8, 0, 8));
+                return c;
+            }
+        });
+
         listado.add(new JScrollPane(tablaProductos), BorderLayout.CENTER);
 
         cuerpo.add(formulario, BorderLayout.WEST);
@@ -331,7 +414,6 @@ public class VentanaPrincipal extends JFrame {
         panel.add(cuerpo, BorderLayout.CENTER);
         return panel;
     }
-
     private JPanel crearPanelClientes() {
         JPanel panel = crearPanelBase("Clientes", "Mantén una lista simple de clientes durante la sesión.");
 
@@ -345,9 +427,9 @@ public class VentanaPrincipal extends JFrame {
         formulario.add(crearTituloSeccion("Nuevo cliente"));
         formulario.add(Box.createVerticalStrut(18));
 
-        txtNombreCliente = crearCampo(formulario, "Nombre completo");
+        txtNombreCliente   = crearCampo(formulario, "Nombre completo");
         txtTelefonoCliente = crearCampo(formulario, "Teléfono");
-        txtEmailCliente = crearCampo(formulario, "Correo (opcional)");
+        txtEmailCliente    = crearCampo(formulario, "Correo (opcional)");
 
         JButton btnRegistrar = crearBotonPrimario("Registrar cliente");
         btnRegistrar.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -656,30 +738,92 @@ public class VentanaPrincipal extends JFrame {
         return tabla;
     }
 
-    private void registrarProductoDesdeUI() {
+    private void guardarProductoDesdeUI() {
         try {
             String codigo = txtCodigoProducto.getText().trim();
             String nombre = txtNombreProducto.getText().trim();
             String textoPrecio = txtPrecioProducto.getText().trim().replace(",", ".");
-            double precio = Double.parseDouble(textoPrecio);
+            String textoStock = txtStockProducto.getText().trim();
 
-            if (codigo.isEmpty()) {
-                gestor.registrarProducto(nombre, precio);
-            } else {
-                gestor.registrarProducto(codigo, nombre, precio);
+            if (nombre.isEmpty()) {
+                throw new ValidacionException("El nombre del producto es obligatorio.");
             }
+            double precio = Double.parseDouble(textoPrecio);
+            int stock = textoStock.isEmpty() ? 0 : Integer.parseInt(textoStock);
+            boolean activo = chkActivoProducto.isSelected();
 
-            txtCodigoProducto.setText("");
-            txtNombreProducto.setText("");
-            txtPrecioProducto.setText("");
+            if (codigoProductoEnEdicion != null) {
+                gestor.actualizarProducto(codigoProductoEnEdicion, nombre, precio, stock, activo);
+                mostrarExito("Producto actualizado correctamente.");
+                cancelarEdicionProducto();
+            } else {
+                if (codigo.isEmpty()) {
+                    gestor.registrarProducto(nombre, precio);
+                } else {
+                    gestor.registrarProducto(codigo, nombre, precio, stock, activo);
+                }
+                limpiarFormularioProducto();
+                mostrarExito("Producto registrado correctamente.");
+            }
             refrescarTodo();
-            mostrarExito("Producto registrado correctamente.");
         } catch (NumberFormatException ex) {
-            mostrarError("El precio debe ser un número válido.");
+            mostrarError("Precio y stock deben ser valores numéricos válidos.");
         } catch (ValidacionException | IllegalArgumentException ex) {
             mostrarError(ex.getMessage());
         } catch (Exception ex) {
-            mostrarError("Ocurrió un error inesperado al registrar el producto.");
+            mostrarError("Ocurrió un error inesperado al guardar el producto.");
+        }
+    }
+
+    private void limpiarFormularioProducto() {
+        txtCodigoProducto.setText("");
+        txtNombreProducto.setText("");
+        txtPrecioProducto.setText("");
+        txtStockProducto.setText("");
+        chkActivoProducto.setSelected(true);
+        txtCodigoProducto.setEnabled(true);
+        btnRegistrarProducto.setText("Registrar producto");
+        btnCancelarEdicionProducto.setVisible(false);
+    }
+    private void iniciarEdicionProducto() {
+        int filaVista = tablaProductos.getSelectedRow();
+        if (filaVista < 0) {
+            mostrarError("Seleccione un producto de la tabla para editar.");
+            return;
+        }
+        int fila = tablaProductos.convertRowIndexToModel(filaVista);
+
+        String codigo = String.valueOf(modeloProductos.getValueAt(fila, 0));
+        Producto p = gestor.buscarProductoPorCodigo(codigo);
+        if (p == null) {
+            mostrarError("No se encontró el producto seleccionado.");
+            return;
+        }
+
+        codigoProductoEnEdicion = p.getCodigo();
+        txtCodigoProducto.setText(p.getCodigo());
+        txtCodigoProducto.setEnabled(false);
+        txtNombreProducto.setText(p.getNombre());
+        txtPrecioProducto.setText(String.format("%.2f", p.getPrecio()).replace(",", "."));
+        txtStockProducto.setText(String.valueOf(p.getStock()));
+        chkActivoProducto.setSelected(p.isActivo());
+
+        btnRegistrarProducto.setText("Actualizar producto");
+        btnCancelarEdicionProducto.setVisible(true);
+    }
+
+    private void cancelarEdicionProducto() {
+        codigoProductoEnEdicion = null;
+        limpiarFormularioProducto();
+    }
+
+    private void aplicarFiltroProductos() {
+        if (sorterProductos == null) return;
+        String texto = txtBuscarProducto.getText().trim();
+        if (texto.isEmpty()) {
+            sorterProductos.setRowFilter(null);
+        } else {
+            sorterProductos.setRowFilter(RowFilter.regexFilter("(?i)" + Pattern.quote(texto)));
         }
     }
 
@@ -755,17 +899,22 @@ public class VentanaPrincipal extends JFrame {
     }
 
     private void eliminarProductoSeleccionado() {
-        int fila = tablaProductos.getSelectedRow();
-        if (fila < 0) {
+        int filaVista = tablaProductos.getSelectedRow();
+        if (filaVista < 0) {
             mostrarError("Seleccione un producto de la tabla.");
             return;
         }
+        int fila = tablaProductos.convertRowIndexToModel(filaVista);
         String codigo = String.valueOf(modeloProductos.getValueAt(fila, 0));
+
         if (!confirmar("¿Desea retirar el producto " + codigo + " del catálogo?")) {
             return;
         }
         try {
             gestor.eliminarProducto(codigo);
+            if (codigo.equalsIgnoreCase(codigoProductoEnEdicion)) {
+                cancelarEdicionProducto();
+            }
             refrescarTodo();
         } catch (ValidacionException ex) {
             mostrarError(ex.getMessage());
@@ -843,15 +992,18 @@ public class VentanaPrincipal extends JFrame {
     }
 
     private void refrescarProductos() {
-        if (modeloProductos == null) {
-            return;
-        }
+        if (modeloProductos == null) return;
         modeloProductos.setRowCount(0);
         for (Producto producto : gestor.getProductos()) {
             modeloProductos.addRow(new Object[]{
-                    producto.getCodigo(), producto.getNombre(), moneda(producto.getPrecio())
+                    producto.getCodigo(),
+                    producto.getNombre(),
+                    moneda(producto.getPrecio()),
+                    producto.getStock(),
+                    producto.getEstado()
             });
         }
+        aplicarFiltroProductos();
     }
 
     private void refrescarClientes() {
