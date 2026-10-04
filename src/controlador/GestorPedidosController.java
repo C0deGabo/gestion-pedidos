@@ -1,6 +1,9 @@
 package controlador;
 
+import dao.ProductoDAO;
+import dao.ProductoDAOImpl;
 import excepciones.ValidacionException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -12,15 +15,22 @@ import modelo.Pedido;
 import modelo.Producto;
 
 public class GestorPedidosController {
+
     // LinkedHashMap evita códigos duplicados y conserva el orden de registro.
     private final Map<String, Producto> productos = new LinkedHashMap<>();
     private final Map<String, Cliente> clientes = new LinkedHashMap<>();
     private final ArrayList<Pedido> pedidos = new ArrayList<>();
     private final ArrayList<HistorialEvento> historial = new ArrayList<>();
+    private final ProductoDAO productoDAO;
 
     private int correlativoProducto = 1;
     private int correlativoCliente = 1;
     private int correlativoPedido = 1;
+
+    public GestorPedidosController() {
+        this.productoDAO = new ProductoDAOImpl();
+        cargarProductosDesdeBD();
+    }
 
     // Sobrecarga: código automático.
     public Producto registrarProducto(String nombre, double precio) throws ValidacionException {
@@ -45,10 +55,20 @@ public class GestorPedidosController {
         }
 
         Producto producto = new Producto(clave, nombre, precio);
+
+        try {
+            productoDAO.insertar(producto);
+        } catch (SQLException e) {
+            throw new ValidacionException(
+                    "No se pudo registrar el producto en la base de datos."
+            );
+        }
+
         productos.put(clave, producto);
         registrarEvento("PRODUCTO", "Producto registrado: " + clave + " - " + producto.getNombre());
         return producto;
     }
+
     //sobrecarga: código definido por el usuario, con stock y estado activo/inactivo.
     public Producto registrarProducto(String codigo, String nombre, double precio, int stock, boolean activo) throws ValidacionException {
         validarTexto(codigo, "El código del producto es obligatorio.");
@@ -65,7 +85,17 @@ public class GestorPedidosController {
             throw new ValidacionException("Ya existe un producto con el código " + clave + ".");
         }
 
-        Producto producto = new Producto(clave, nombre, precio, stock, activo);
+        Producto producto
+                = new Producto(clave, nombre, precio, stock, activo);
+
+        try {
+            productoDAO.insertar(producto);
+        } catch (SQLException e) {
+            throw new ValidacionException(
+                    "No se pudo registrar el producto en la base de datos."
+            );
+        }
+
         productos.put(clave, producto);
         registrarEvento("PRODUCTO", "Producto registrado: " + clave + " - " + producto.getNombre());
         return producto;
@@ -130,19 +160,46 @@ public class GestorPedidosController {
     }
 
     public void eliminarProducto(String codigo) throws ValidacionException {
-        Producto eliminado = productos.remove(codigo);
-        if (eliminado == null) {
-            throw new ValidacionException("No se encontró el producto seleccionado.");
+
+        Producto producto = buscarProductoPorCodigo(codigo);
+
+        if (producto == null) {
+            throw new ValidacionException(
+                    "No se encontró el producto seleccionado."
+            );
         }
-        registrarEvento("PRODUCTO", "Producto retirado del catálogo: " + codigo + " - " + eliminado.getNombre());
+
+        try {
+            productoDAO.eliminar(producto.getCodigo());
+        } catch (SQLException e) {
+            throw new ValidacionException(
+                    "No se pudo eliminar el producto de la base de datos."
+            );
+        }
+
+        productos.remove(producto.getCodigo());
+
+        registrarEvento(
+                "PRODUCTO",
+                "Producto retirado del catálogo: "
+                + producto.getCodigo() + " - " + producto.getNombre()
+        );
     }
-        /** Busca un producto por código (case-insensitive). Devuelve null si no existe. */
+
+    /**
+     * Busca un producto por código (case-insensitive). Devuelve null si no
+     * existe.
+     */
     public Producto buscarProductoPorCodigo(String codigo) {
-        if (codigo == null) return null;
+        if (codigo == null) {
+            return null;
+        }
         return productos.get(codigo.trim().toUpperCase());
     }
 
-    /** Actualiza un producto existente (el código no se modifica). */
+    /**
+     * Actualiza un producto existente (el código no se modifica).
+     */
     public void actualizarProducto(String codigo, String nombre, double precio, int stock, boolean activo)
             throws ValidacionException {
 
@@ -167,14 +224,34 @@ public class GestorPedidosController {
             }
         }
 
+        Producto productoActualizado = new Producto(
+                producto.getCodigo(),
+                nombreLimpio,
+                precio,
+                stock,
+                activo
+        );
+
+        try {
+            productoDAO.actualizar(productoActualizado);
+        } catch (SQLException e) {
+            throw new ValidacionException(
+                    "No se pudo actualizar el producto en la base de datos."
+            );
+        }
+
         producto.setNombre(nombreLimpio);
         producto.setPrecio(precio);
         producto.setStock(stock);
         producto.setActivo(activo);
 
-        registrarEvento("PRODUCTO", "Producto actualizado: " + producto.getCodigo()
-                + " - " + producto.getNombre() + " (stock: " + stock
-                + ", estado: " + producto.getEstado() + ")");
+        registrarEvento(
+                "PRODUCTO",
+                "Producto actualizado: " + producto.getCodigo()
+                + " - " + producto.getNombre()
+                + " (stock: " + stock
+                + ", estado: " + producto.getEstado() + ")"
+        );
     }
 
     public void eliminarCliente(String id) throws ValidacionException {
@@ -227,6 +304,22 @@ public class GestorPedidosController {
         return total;
     }
 
+    private void cargarProductosDesdeBD() {
+        try {
+            productos.clear();
+
+            for (Producto producto : productoDAO.listar()) {
+
+                productos.put(producto.getCodigo(), producto);
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException(
+                    "No se pudieron cargar los productos desde SQL Server.",
+                    e
+            );
+        }
+    }
+
     private Pedido buscarPedido(String id) {
         if (id == null) {
             return null;
@@ -269,6 +362,7 @@ public class GestorPedidosController {
     }
 
     public static class DetalleTemporal {
+
         private final Producto producto;
         private final int cantidad;
 
