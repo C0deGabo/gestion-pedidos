@@ -2,3 +2,7 @@ out/
 *.class
 .idea/
 *.iml
+
+# Configuracion local de base de datos
+config.properties
+desktop.ini
