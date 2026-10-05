@@ -159,7 +159,7 @@ public class VentanaPrincipal extends JFrame {
         seleccionarBotonMenu("dashboard");
         menu.add(Box.createVerticalGlue());
 
-        JLabel nota = new JLabel("Sin base de datos");
+        JLabel nota = new JLabel("Persistencia activa");
         nota.setForeground(new Color(100, 116, 139));
         nota.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         nota.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -233,7 +233,7 @@ public class VentanaPrincipal extends JFrame {
                 BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDE),
                 new EmptyBorder(8, 18, 8, 18)
         ));
-        JLabel texto = new JLabel("Los datos se guardan solo mientras la aplicación esté abierta.");
+        JLabel texto = new JLabel("Los datos se guardan en el servidor.");
         texto.setForeground(COLOR_TEXTO_SUAVE);
         texto.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         barra.add(texto, BorderLayout.WEST);
